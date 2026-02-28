@@ -3,114 +3,173 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Vercel Snake Game</title>
+  <title>Twin Blaster Web Game</title>
   <style>
     body {
-      background-color: #222;
-      color: white;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
       margin: 0;
+      background-color: #0b0f19;
+      color: white;
+      text-align: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     canvas {
-      background-color: #000;
-      border: 4px solid #4CAF50;
-      box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+      background-color: #1a2235;
+      border: 2px solid #00ffff;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+      margin-top: 20px;
     }
     p { color: #888; }
   </style>
 </head>
 <body>
 
-  <h1>Retro Snake</h1>
-  <canvas width="400" height="400" id="gameCanvas"></canvas>
-  <p>Use Arrow Keys to move</p>
+  <h2>Twin Blaster Survival</h2>
+  <p>Move: <strong>Left/Right Arrows</strong> | Shoot: <strong>Spacebar</strong></p>
+  
+  <canvas id="gameCanvas" width="500" height="600"></canvas>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const grid = 16;
-    let count = 0;
     
-    let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
-    let apple = { x: 320, y: 320 };
-
-    // Get random coordinates for the apple
-    function getRandomInt(min, max) {
-      return Math.floor(Math.random() * (max - min)) + min;
+    // Player object (The Gunslinger)
+    const player = { x: 225, y: 530, width: 50, height: 50, speed: 6, dx: 0 };
+    
+    // Game arrays and variables
+    const bullets = [];
+    const enemies = [];
+    let score = 0;
+    let gameOver = false;
+    let frameCount = 0;
+    
+    // Listen for keyboard input
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') player.dx = -player.speed;
+      if (e.key === 'ArrowRight') player.dx = player.speed;
+      if (e.key === ' ' || e.key === 'Spacebar') shoot();
+    });
+    
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') player.dx = 0;
+    });
+    
+    // Function to fire twin lasers
+    function shoot() {
+      if (gameOver) return;
+      // Left blaster
+      bullets.push({ x: player.x + 5, y: player.y, width: 4, height: 15, speed: 8 });
+      // Right blaster
+      bullets.push({ x: player.x + 41, y: player.y, width: 4, height: 15, speed: 8 });
     }
-
-    // Main game loop
-    function loop() {
-      requestAnimationFrame(loop);
+    
+    // Main update logic (Movement & Collisions)
+    function update() {
+      if (gameOver) return;
       
-      // Slow down the game loop to make it playable
-      if (++count < 6) return; 
-      count = 0;
+      // 1. Move player and keep them inside the canvas
+      player.x += player.dx;
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
       
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Move snake
-      snake.x += snake.dx;
-      snake.y += snake.dy;
-
-      // Wrap snake position horizontally on edge of screen
-      if (snake.x < 0) snake.x = canvas.width - grid;
-      else if (snake.x >= canvas.width) snake.x = 0;
-      
-      // Wrap snake position vertically on edge of screen
-      if (snake.y < 0) snake.y = canvas.height - grid;
-      else if (snake.y >= canvas.height) snake.y = 0;
-
-      // Keep track of where snake has been
-      snake.cells.unshift({x: snake.x, y: snake.y});
-      if (snake.cells.length > snake.maxCells) snake.cells.pop();
-
-      // Draw apple
-      ctx.fillStyle = 'red';
-      ctx.fillRect(apple.x, apple.y, grid-1, grid-1);
-
-      // Draw snake
-      ctx.fillStyle = 'lime';
-      snake.cells.forEach(function(cell, index) {
-        ctx.fillRect(cell.x, cell.y, grid-1, grid-1);
-
-        // Snake eats apple
-        if (cell.x === apple.x && cell.y === apple.y) {
-          snake.maxCells++;
-          apple.x = getRandomInt(0, 25) * grid;
-          apple.y = getRandomInt(0, 25) * grid;
+      // 2. Move bullets up the screen
+      for (let i = 0; i < bullets.length; i++) {
+        bullets[i].y -= bullets[i].speed;
+        // Remove bullet if it goes off screen
+        if (bullets[i].y < 0) { 
+            bullets.splice(i, 1); 
+            i--; 
         }
-
-        // Check collision with all cells after this one (self collision)
-        for (let i = index + 1; i < snake.cells.length; i++) {
-          if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
-            // Reset game
-            snake.x = 160; 
-            snake.y = 160; 
-            snake.cells = []; 
-            snake.maxCells = 4; 
-            snake.dx = grid; 
-            snake.dy = 0;
+      }
+      
+      // 3. Spawn enemies
+      frameCount++;
+      if (frameCount % 50 === 0) {
+        const enemyX = Math.random() * (canvas.width - 40);
+        enemies.push({ x: enemyX, y: -40, width: 40, height: 40, speed: 2 + Math.random() * 3 });
+      }
+      
+      // 4. Move enemies down the screen
+      for (let i = 0; i < enemies.length; i++) {
+        enemies[i].y += enemies[i].speed;
+        
+        // Check collision: Enemy hits Player (Game Over)
+        if (enemies[i].x < player.x + player.width &&
+            enemies[i].x + enemies[i].width > player.x &&
+            enemies[i].y < player.y + player.height &&
+            enemies[i].y + enemies[i].height > player.y) {
+          gameOver = true;
+        }
+        
+        // Remove enemy if it passes the bottom of the screen
+        if (enemies[i].y > canvas.height) { 
+            enemies.splice(i, 1); 
+            i--; 
+        }
+      }
+      
+      // 5. Check collision: Bullet hits Enemy
+      for (let i = 0; i < enemies.length; i++) {
+        for (let j = 0; j < bullets.length; j++) {
+          let e = enemies[i];
+          let b = bullets[j];
+          
+          if (e && b && 
+              b.x < e.x + e.width && b.x + b.width > e.x &&
+              b.y < e.y + e.height && b.y + b.height > e.y) {
+            
+            // Destroy both and increase score
+            enemies.splice(i, 1);
+            bullets.splice(j, 1);
+            score += 10;
+            i--; // Adjust enemy index after removal
+            break; // Move to the next enemy
           }
         }
-      });
+      }
     }
-
-    // Listen to keyboard events to move the snake
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'ArrowLeft' && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
-      else if (e.key === 'ArrowUp' && snake.dy === 0) { snake.dy = -grid; snake.dx = 0; }
-      else if (e.key === 'ArrowRight' && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
-      else if (e.key === 'ArrowDown' && snake.dy === 0) { snake.dy = grid; snake.dx = 0; }
-    });
-
-    // Start the game
-    requestAnimationFrame(loop);
+    
+    // Drawing the graphics
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      if (gameOver) {
+        ctx.fillStyle = '#ff3366';
+        ctx.font = 'bold 40px sans-serif';
+        ctx.fillText('GAME OVER', 125, 300);
+        ctx.fillStyle = 'white';
+        ctx.font = '20px sans-serif';
+        ctx.fillText('Final Score: ' + score, 180, 340);
+        ctx.fillText('Refresh page to restart', 150, 380);
+        return;
+      }
+      
+      // Draw Player (Cyan box)
+      ctx.fillStyle = '#00ffff';
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+      
+      // Draw Bullets (Yellow)
+      ctx.fillStyle = '#ffff00';
+      bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+      
+      // Draw Enemies (Red squares)
+      ctx.fillStyle = '#ff3366';
+      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+      
+      // Draw Scoreboard
+      ctx.fillStyle = 'white';
+      ctx.font = '20px sans-serif';
+      ctx.fillText('Score: ' + score, 10, 30);
+    }
+    
+    // Game Loop
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+    
+    // Start game
+    loop();
   </script>
 </body>
 </html>
